@@ -1,0 +1,147 @@
+
+/ {
+	chosen {
+		bootargs = "console=ttyAMA0 earlycon=pl011,mmio32,0xFF010000,
+			clk_ignore_unused root=/dev/ram0,
+			ip=10.0.0.126:::255.255.255.0:versal-te0950:eth1";
+		stdout-path = "serial0:115200n8";
+	};
+
+	aliases {
+		ethernet0 = &gem0;
+	};
+};
+
+#include "include/dt-bindings/gpio/gpio.h"
+
+
+/*------------------ SD --------------------*/
+&sdhci1 {
+	no-1-8-v;
+};
+
+/*------------------ QSPI --------------------*/
+&qspi {
+	flash@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+
+		spi-rx-bus-width = <4>;
+		spi-tx-bus-width = <4>;
+		/* actually the chip can do 90MHz, 
+		 * reduced to 70MHz as in 2023.2 otherwise JEDEC ID was wrong on first bit */
+		spi-max-frequency = <70000000>; 
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		partition@0 {
+			label = "qspi-boot";
+			reg = <0x00000000 0x00100000>;
+		};
+		partition@1 {
+			label = "qspi-kernel";
+			reg = <0x00100000 0x01600000>;
+		};
+		partition@2 {
+			label = "qspi-bootenv";
+			reg = <0x01700000 0x00040000>;
+		};
+	};
+};
+
+/*------------------ ETH PHY --------------------*/
+&gem0 {
+	phy-handle = <&phy0>;
+
+	nvmem-cells = <&eth0_addr>;
+	nvmem-cell-names = "mac-address";
+
+	mdio {
+		phy0: phy0@1 {
+			device_type = "ethernet-phy";
+			reg = <1>;
+
+			//only needed because of reset-gpios present
+			compatible = "ethernet-phy-id0141.0DD1"; //uboot: [mii read 1 2].[mii read 1 3]
+
+			reset-names = "ETH_RESET";
+			reset-gpios = <&gpio0 23 GPIO_ACTIVE_LOW>;
+			reset-assert-us = <10000>; //minimum duration according to datasheet 10ms
+			reset-deassert-us = <2000>;
+		};
+	};
+};
+
+
+/*------------------ PS GPIO MISC --------------------*/
+&gpio0 {
+	gpio-line-names = 
+		"", "", "", "", "", "", "", "", "", "",
+		"", "", "", "", "", "", "", "", "", "",
+		"", "", "LPD_MIO22", "";
+};
+&gpio1 {
+	gpio-line-names = 
+		"", "", "", "", "", "", "", "", "", "",
+		"", "", "", "", "", "", "", "", "", "",
+		"", "", "", "", "", "", "", "PMC_MIO27", "", "",
+		"", "", "", "", "", "", "", "USB_OC", "", "",
+		"", "", "", "", "", "", "", "", "", "",
+		"", "LED0", "", "", "", "", "", "", "", "";
+};
+
+
+/*------------------ USB --------------------*/
+&dwc3_0 {
+	dr_mode = "host";
+};
+
+/*------------------ I2C --------------------*/
+&i2c0 {
+	i2cswitch@70 { // Artix I2C MUX Emulations
+		compatible = "nxp,pca9548";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x70>;
+		i2c-mux-idle-disconnect;
+ 
+		i2c_cruvi_hs1: i2c@0 { // CRUVI HS1 IIC
+			reg = <0>;
+		};
+		i2c_cruvi_hs2: i2c@1 { // CRUVI HS2 IIC
+			reg = <1>;
+		};
+		i2c_qsfp: i2c@2 { // QSFP IIC
+			reg = <2>;
+		};
+		i2c_fmc: i2c@3 { // FMC IIC
+			reg = <3>;
+		};
+	};
+};
+
+&i2c2 {
+	status = "okay";
+  
+	eeprom: eeprom@50 {
+		compatible = "microchip,24aa025", "atmel,24c02";
+		reg = <0x50>;
+		
+		#address-cells = <1>;
+		#size-cells = <1>;
+		eth0_addr: eth-mac-addr@FA {
+			reg = <0xFA 0x06>;
+		};
+	};
+  
+	regulator: regulator@61 {
+		compatible = "mps,mp8869";
+		reg = <0x61>;
+		//driver can only set voltages, not read current...
+		
+		mps,fb-voltage-divider = <80 13>;
+		//needs enable gpio e.g.: enable-gpios = <&porta 1 GPIO_ACTIVE_LOW>;
+    
+	};
+};
