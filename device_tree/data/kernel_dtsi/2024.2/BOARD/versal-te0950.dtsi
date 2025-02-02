@@ -1,9 +1,7 @@
 
 / {
 	chosen {
-		bootargs = "console=ttyAMA0 earlycon=pl011,mmio32,0xFF010000,
-			clk_ignore_unused root=/dev/ram0,
-			ip=10.0.0.126:::255.255.255.0:versal-te0950:eth1";
+		bootargs = "console=ttyAMA0 earlycon=pl011, mmio32,0xFF010000, clk_ignore_unused, ip=10.0.0.126:::255.255.255.0:versal-te0950:eth1";
 		stdout-path = "serial0:115200n8";
 	};
 
